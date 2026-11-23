@@ -2323,6 +2323,37 @@ mod tests {
     }
 
     #[test]
+    fn test_strip_basedirs_from_arg_d1trimfile() {
+        // /d1trimfile:<path> is a PassThroughWithSuffix MSVC flag: the path is
+        // glued directly after the colon.  strip_basedirs_from_arg must strip
+        // the basedir from that glued value so that two invocations from
+        // different checkouts hash identically when SCCACHE_BASEDIRS is set.
+        //
+        // Basedirs are stored lowercased+normalized with forward slashes, which
+        // we hardcode prepared.
+        let basedir = b"c:/src/alice/".to_vec();
+        let strip = |arg: &[u8]| {
+            super::strip_basedirs_from_arg(arg, std::slice::from_ref(&basedir)).into_owned()
+        };
+
+        // The basedir prefix is stripped from the glued value.
+        assert_eq!(
+            strip(b"/d1trimfile:c:/src/alice"),
+            b"/d1trimfile:"
+        );
+        assert_eq!(
+            strip(b"/d1trimfile:c:/src/alice/sub"),
+            b"/d1trimfile:sub"
+        );
+
+        // A sibling checkout is not a match.
+        assert_eq!(
+            strip(b"/d1trimfile:c:/src/bob"),
+            b"/d1trimfile:c:/src/bob"
+        );
+    }
+
+    #[test]
     fn test_strip_basedirs_from_arg_skips_positions_inside_a_match() {
         // A directory whose name contains an `=` is legal, and it puts one of
         // the positions where an option value could start inside the basedir
