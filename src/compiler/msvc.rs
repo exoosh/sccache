@@ -512,6 +512,7 @@ msvc_args!(static ARGS: [ArgInfo<ArgData>; _] = [
     msvc_take_arg!("clr:", OsString, Concatenated, PassThroughWithSuffix),
     msvc_take_arg!("constexpr:", OsString, Concatenated, PassThroughWithSuffix),
     msvc_flag!("d1nodatetime", PassThrough),
+    msvc_take_arg!("d1trimfile:", OsString, Concatenated, PassThroughWithSuffix),
     msvc_flag!("d20bforceinline", PassThrough),
     msvc_take_arg!("deps", PathBuf, Concatenated, DepFile),
     msvc_take_arg!("diagnostics:", OsString, Concatenated, PassThroughWithSuffix),
@@ -2926,6 +2927,29 @@ mod test {
                 "-Fmdictionary-map"
             )
         );
+    }
+
+    #[test]
+    fn test_parse_arguments_d1trimfile() {
+        // /d1trimfile:<path> is a pass-through flag: it goes into common_args
+        // (and therefore the cache key) and is forwarded to the compiler.
+        // Cross-checkout cache hits are achieved via SCCACHE_BASEDIRS.
+        let parse = |args| match parse_arguments(args) {
+            CompilerArguments::Ok(a) => a,
+            o => panic!("unexpected parse result: {:?}", o),
+        };
+
+        let a = parse(ovec![
+            "/d1trimfile:C:\\src\\alice",
+            "-c",
+            "-Foout.obj",
+            "foo.c"
+        ]);
+
+        assert_eq!(a.common_args, ovec!["/d1trimfile:C:\\src\\alice"]);
+        assert!(a.preprocessor_args.is_empty());
+        assert!(a.dependency_args.is_empty());
+        assert!(a.unhashed_args.is_empty());
     }
 
     #[test]
